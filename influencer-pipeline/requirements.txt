@@ -1,0 +1,12 @@
+numpy
+pandas
+tqdm
+regex
+emoji
+langdetect
+orjson
+openai
+groq
+python-dotenv
+google-cloud-storage
+

@@ -1,0 +1,74 @@
+services:
+  neo4j-db:
+    image: neo4j:5.22
+    container_name: neo4j-db
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./influencer-pipeline/shared:/shared
+      - ./neo4j_data_enqi:/data
+      - ./app/docker/init_neo4j.cypher:/docker-entrypoint-initdb.d/init.cypher
+    networks:
+      - influencer-net
+
+  enqi-uploader:
+    build: .
+    container_name: enqi-uploader
+    depends_on:
+      - neo4j-db
+    environment:
+      - NEO4J_URI=bolt://neo4j-db:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password
+      - DATA_FILE=/shared/influencer_index.jsonl
+    volumes:
+      - ./influencer-pipeline/shared:/shared
+      - ./app/docker/init_neo4j.cypher:/init.cypher
+    networks:
+      - influencer-net
+    command: ["bash", "-c", "until nc -z neo4j-db 7687; do echo '⏳ Waiting for Neo4j...'; sleep 3; done && sleep 10 && python load_influencer_hashtags.py"]
+    #command: ["bash", "-c", "until nc -z neo4j-db 7687; do echo '⏳ Waiting for Neo4j...'; sleep 3; done && sleep 30 && cypher-shell -u neo4j -p password -d neo4j -f /init.cypher && echo 'Indexes created' && python load_influencer_hashtags.py"]
+
+  # ---------- 你的主应用 ----------
+  app:
+    build: ./app
+    container_name: influencerlens-app
+    depends_on:
+      - neo4j-db
+    env_file:
+      - .env
+    environment:
+      # Neo4j 连接配置
+      - NEO4J_URI=bolt://neo4j-db:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password
+
+      # 初始化控制（首次设 1，之后设 0）
+      - NEO4J_INIT=0
+
+      # 检索配置（与你数据库的字段/索引一致）
+      - NEO4J_LABEL=Influencer
+      - NEO4J_FT_INDEX=influencer_ft
+      - NEO4J_VEC_INDEX=influencer_summary_vec
+      - VEC_DIM=1024
+      - VEC_SIM=cosine
+
+      # 应用配置
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+
+    volumes:
+      - ./app:/app      
+      - ./outputs:/app/outputs
+    ports:
+      - "8000:8000"
+    networks:
+      - influencer-net
+
+networks:
+  influencer-net:
+    driver: bridge

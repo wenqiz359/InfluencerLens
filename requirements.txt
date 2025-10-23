@@ -1,0 +1,13 @@
+# Core database connector
+neo4j==5.20.0
+
+# Utility libraries
+tqdm==4.66.4
+orjson==3.10.7
+
+# Optional but useful for data handling
+pandas==2.2.2
+numpy==1.26.4
+
+# Environment configuration
+python-dotenv==1.0.1

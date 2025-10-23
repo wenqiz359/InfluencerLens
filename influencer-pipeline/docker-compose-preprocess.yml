@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  data-prep:
+    build: .
+    container_name: data-prep
+    env_file: .env
+    command: ["python", "preprocess.py"]
+    volumes:
+      - ./shared:/shared
+      - ~/.config/gcloud:/root/.config/gcloud
